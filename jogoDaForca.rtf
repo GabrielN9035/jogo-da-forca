@@ -1,0 +1,513 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1046{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\f0\fs22\lang22 #include <stdio.h>\par
+#include <stdlib.h>\par
+#include <stdbool.h>\par
+#include <string.h>\par
+#include <time.h>\par
+#include <ctype.h> // Necess\'e1rio para toupper\par
+\par
+// --- Prot\'f3tipos de Fun\'e7\'f5es ---\par
+FILE* abrirArq(char nome[], char modo[]);\par
+FILE* fecharArq(FILE *arq);\par
+void adicionarPalavra();\par
+void adicionarDica();\par
+void sorteio();\par
+void pausa();\par
+void menu();\par
+void init();\par
+void exibeboneco(int membros);\par
+void resultado(unsigned char palavra[201], bool res); // Alterado para unsigned char\par
+void jogar();\par
+// Assinatura de procletra alterada para usar unsigned char*\par
+bool procletra(unsigned char letra, unsigned char palavradit[201], unsigned char *esconde, unsigned char palavra[201]);\par
+\par
+// --- Fun\'e7\'f5es Auxiliares ---\par
+\par
+// Fun\'e7\'e3o para limpar o buffer de entrada de forma port\'e1til\par
+void limparBuffer() \{\par
+    int c;\par
+    while ((c = getchar()) != '\\n' && c != EOF);\par
+\}\par
+\par
+// Implementa\'e7\'e3o port\'e1til de strupr\par
+char* my_strupr(unsigned char *str) \{\par
+    unsigned char *p = str;\par
+    while (*p) \{\par
+        *p = toupper((unsigned char)*p);\par
+        p++;\par
+    \}\par
+    return (char*)str; // Retorna char* para compatibilidade com strcmp, etc.\par
+\}\par
+\par
+// --- Vari\'e1veis Globais ---\par
+unsigned int palavraraso;\par
+\par
+// --- Estruturas ---\par
+typedef struct registro\{\par
+    unsigned int idDica;\par
+    unsigned char palavra[201];\par
+\} registro;\par
+\par
+typedef struct dica\{\par
+    unsigned char dica[201];\par
+\} dica;\par
+\par
+// --- Implementa\'e7\'e3o das Fun\'e7\'f5es ---\par
+\par
+int main()\{\par
+    init();\par
+    menu();\par
+    return 0;\par
+\}\par
+\par
+// Fun\'e7\'e3o para abrir arquivo\par
+FILE* abrirArq(char nome[], char modo[])\{\par
+    FILE *f = fopen(nome, modo);\par
+    if(f == NULL)\{\par
+        printf("Erro ao abrir o arquivo %s\\n", nome);\par
+    \}\par
+    return f;\par
+\}\par
+\par
+// Fun\'e7\'e3o para fechar arquivo\par
+FILE* fecharArq(FILE *arq)\{\par
+    if(arq != NULL)\{\par
+        fclose(arq);\par
+    \}\par
+    return NULL;\par
+\}\par
+\par
+void init()\{\par
+    FILE *temp;\par
+    temp = abrirArq("dicas.fc", "a");\par
+    temp = fecharArq(temp);\par
+    temp = abrirArq("palavras.fc", "a");\par
+    temp = fecharArq(temp);\par
+\}\par
+\par
+void menu()\{\par
+    char opt;\par
+    do\{\par
+        system("cls");\par
+        printf("===========================================\\n");\par
+        printf("|              JOGO DA FORCA              |\\n");\par
+        printf("===========================================\\n");\par
+        printf("| 1. INICIAR JOGO\\n");\par
+        printf("| 2. ADICIONAR DICA \\n");\par
+        printf("| 3. ADICIONAR PALAVRA \\n");\par
+        printf("| 4. SAIR \\n");\par
+        printf("===========================================\\n");\par
+        printf("Escolha uma opcao: ");\par
+        scanf("%c", &opt);\par
+        limparBuffer(); // Limpa o buffer ap\'f3s a leitura de char\par
+\par
+        if(opt == '1')\{\par
+            jogar();\par
+        \}else if(opt == '2')\{\par
+            adicionarDica();\par
+        \}else if(opt == '3')\{\par
+            adicionarPalavra();\par
+        \}\par
+    \}while(opt != '4');\par
+\}\par
+\par
+void jogar()\{\par
+    registro guarda;\par
+    size_t i; // Alterado para size_t\par
+    size_t j; // Alterado para size_t\par
+    int tamanho = 0;\par
+    int qtdErro = 0;\par
+    bool fim = false;\par
+    bool ganhou = false;\par
+    bool achou = false;\par
+    unsigned char letra;\par
+    unsigned char letDig[100]; // N\'e3o precisa inicializar com '0' se vai terminar com '\\0'\par
+    unsigned char palavraEdit[201];\par
+    unsigned char esconde[201];\par
+    dica gua;\par
+    FILE *arq;\par
+\par
+    sorteio();\par
+\par
+    arq = abrirArq("palavras.fc", "r");\par
+    if (arq == NULL) \{\par
+        printf("Erro fatal: Nao foi possivel abrir o arquivo de palavras para jogar.\\n");\par
+        pausa();\par
+        return;\par
+    \}\par
+    fseek(arq, sizeof(guarda) * palavraraso, SEEK_SET);\par
+    fread(&guarda, sizeof(guarda), 1, arq);\par
+    arq = fecharArq(arq);\par
+\par
+    arq = abrirArq("dicas.fc", "r");\par
+    if (arq == NULL) \{\par
+        printf("Erro fatal: Nao foi possivel abrir o arquivo de dicas para jogar.\\n");\par
+        pausa();\par
+        return;\par
+    \}\par
+    fseek(arq, sizeof(gua) * guarda.idDica, SEEK_SET);\par
+    fread(&gua, sizeof(gua), 1, arq);\par
+    arq = fecharArq(arq);\par
+\par
+    letDig[0] = '\\0'; // Garante termina\'e7\'e3o nula\par
+\par
+    for(i = 0; i < strlen((char*)guarda.palavra); i++)\{\par
+        if(guarda.palavra[i] == (unsigned char)181 || guarda.palavra[i] == (unsigned char)183 || guarda.palavra[i] == (unsigned char)199 || guarda.palavra[i] == (unsigned char)182 || guarda.palavra[i] == (unsigned char)142)\{\par
+            palavraEdit[i] = (unsigned char)65; // 'A'\par
+        \} else if(guarda.palavra[i] == (unsigned char)144 || guarda.palavra[i] == (unsigned char)212 || guarda.palavra[i] == (unsigned char)210 || guarda.palavra[i] == (unsigned char)211)\{\par
+            palavraEdit[i] = (unsigned char)69; // 'E'\par
+        \} else if(guarda.palavra[i] == (unsigned char)214 || guarda.palavra[i] == (unsigned char)222 || guarda.palavra[i] == (unsigned char)225 || guarda.palavra[i] == (unsigned char)216)\{\par
+            palavraEdit[i] = (unsigned char)73; // 'I'\par
+        \} else if(guarda.palavra[i] == (unsigned char)224 || guarda.palavra[i] == (unsigned char)227 || guarda.palavra[i] == (unsigned char)229 || guarda.palavra[i] == (unsigned char)153)\{\par
+            palavraEdit[i] = (unsigned char)79; // 'O'\par
+        \} else if(guarda.palavra[i] == (unsigned char)233 || guarda.palavra[i] == (unsigned char)235 || guarda.palavra[i] == (unsigned char)234 || guarda.palavra[i] == (unsigned char)154)\{\par
+            palavraEdit[i] = (unsigned char)85; // 'U'\par
+        \} else \{\par
+            palavraEdit[i] = guarda.palavra[i];\par
+        \}\par
+    \}\par
+    palavraEdit[i] = '\\0';\par
+\par
+    for(i = 0; i < strlen((char*)palavraEdit); i++)\{\par
+        if(palavraEdit[i] == ' ')\{\par
+            esconde[i] = ' ';\par
+        \} else if(palavraEdit[i] == '-' || palavraEdit[i] == '_')\{\par
+            esconde[i] = '-';\par
+        \} else \{\par
+            esconde[i] = '_';\par
+        \}\par
+        if(palavraEdit[i] != ' ' && palavraEdit[i] != '-' && palavraEdit[i] != '_')\{\par
+            tamanho++;\par
+        \}\par
+    \}\par
+    esconde[i] = '\\0';\par
+    j = 0;\par
+\par
+    while(fim == false)\{\par
+        system("cls");\par
+        exibeboneco(qtdErro);\par
+        printf("\\n\\t\\t\\t");\par
+        for(i = 0; i < strlen((char*)esconde); i++)\{\par
+            printf("%c ", esconde[i]);\par
+        \}\par
+\par
+        printf("\\n\\n\\tLETRAS DIGITADAS: ");\par
+        for(i = 0; i < strlen((char*)letDig); i++)\{\par
+            printf("%c ", letDig[i]);\par
+        \}\par
+\par
+        printf("\\n\\n\\tDICA: %s", (char*)gua.dica); // Cast para printf\par
+        printf("\\n\\n\\tTAMANHO: %d", tamanho);\par
+        printf("\\n\\tDIGITE UMA LETRA: ");\par
+        scanf("%c", &letra);\par
+        limparBuffer();\par
+\par
+        if(letra >= (unsigned char)'a' && letra <= (unsigned char)'z')\{ // Cast para compara\'e7\'e3o\par
+            letra = (unsigned char)toupper(letra); // Cast para atribui\'e7\'e3o\par
+        \} else if(letra == (unsigned char)135)\{ // Caractere '\'c7' min\'fasculo\par
+            letra = (unsigned char)128; // '\'c7' mai\'fasculo\par
+        \}\par
+\par
+        achou = false;\par
+        for(i = 0; i < j; i++)\{\par
+            if(letra == letDig[i])\{\par
+                achou = true;\par
+                break;\par
+            \}\par
+        \}\par
+\par
+        if(achou == false)\{\par
+            letDig[j] = letra;\par
+            letDig[j+1] = '\\0';\par
+            j++;\par
+            // N\'e3o precisa de casts aqui se os par\'e2metros de procletra foram ajustados\par
+            if(procletra(letra, palavraEdit, esconde, guarda.palavra) == true)\{\par
+                qtdErro++;\par
+            \}\par
+        \}\par
+\par
+        if(qtdErro == 6)\{\par
+            fim = true;\par
+            ganhou = false;\par
+        \} else if(strcmp((char*)guarda.palavra, (char*)esconde) == 0)\{\par
+            ganhou = true;\par
+            fim = true;\par
+        \}\par
+    \}\par
+    resultado(guarda.palavra, ganhou); // Argumento j\'e1 \'e9 unsigned char[]\par
+\}\par
+\par
+// Implementa\'e7\'e3o de procletra com par\'e2metros unsigned char*\par
+bool procletra(unsigned char letra, unsigned char palavraEdit[201], unsigned char *esconde, unsigned char palavra[201])\{\par
+    bool erro = true;\par
+    size_t i; // Alterado para size_t\par
+    for(i = 0; i < strlen((char*)palavraEdit); i++)\{\par
+        if(letra == palavraEdit[i])\{\par
+            erro = false;\par
+            esconde[i] = palavra[i];\par
+        \}\par
+    \}\par
+    return erro;\par
+\}\par
+\par
+// Assinatura de resultado alterada para receber unsigned char\par
+void resultado(unsigned char palavra[201], bool res)\{\par
+    system("cls");\par
+    printf("-----RESULTADO-----\\n");\par
+    printf("\\t PALAVRA: %s\\n", (char*)palavra); // Cast para printf\par
+    if(res == true)\{\par
+        printf("\\tVOCE GANHOU!\\n");\par
+    \} else \{\par
+        printf("\\tVOCE PERDEU!\\n");\par
+    \}\par
+    pausa();\par
+\}\par
+\par
+void exibeboneco(int membros)\{\par
+    switch(membros)\{\par
+        case 1:\par
+            printf("\\n\\n");\par
+            printf("             __________\\n");\par
+            printf("            | /        |\\n");\par
+            printf("            |/         O\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("           _L_\\n");\par
+            break;\par
+        case 2:\par
+            printf("\\n\\n");\par
+            printf("             __________\\n");\par
+            printf("            | /        |\\n");\par
+            printf("            |/         O\\n");\par
+            printf("            |          |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("           _L_\\n");\par
+            break;\par
+        case 3:\par
+            printf("\\n\\n");\par
+            printf("             __________\\n");\par
+            printf("            | /        |\\n");\par
+            printf("            |/         O\\n");\par
+            printf("            |         /|\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("           _L_\\n");\par
+            break;\par
+        case 4:\par
+            printf("\\n\\n");\par
+            printf("             __________\\n");\par
+            printf("            | /        |\\n");\par
+            printf("            |/         O\\n");\par
+            printf("            |         /|\\\\\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("           _L_\\n");\par
+            break;\par
+        case 5:\par
+            printf("\\n\\n");\par
+            printf("             __________\\n");\par
+            printf("            | /        |\\n");\par
+            printf("            |/         O\\n");\par
+            printf("            |         /|\\\\\\n");\par
+            printf("            |         /\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("           _L_\\n");\par
+            break;\par
+        case 6:\par
+            printf("\\n\\n");\par
+            printf("             __________\\n");\par
+            printf("            | /        |\\n");\par
+            printf("            |/         O\\n");\par
+            printf("            |         /|\\\\\\n");\par
+            printf("            |         / \\\\\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("            |\\n");\par
+            printf("           _L_\\n");\par
+            break;\par
+    \}\par
+\}\par
+\par
+void pausa()\{\par
+    printf("\\nAPERTTE UMA TECLA PARA VOLTAR AO MENU...");\par
+    getchar();\par
+    limparBuffer();\par
+\}\par
+\par
+void sorteio()\{\par
+    srand((unsigned int)time(NULL)); // Cast para unsigned int\par
+    FILE *arq;\par
+    registro temp;\par
+    unsigned int qtd = 0;\par
+\par
+    arq = abrirArq("palavras.fc", "r");\par
+    if(arq == NULL)\{\par
+        printf("Erro ao abrir o arquivo de palavras para sorteio.\\n");\par
+        exit(1);\par
+    \}\par
+\par
+    while(fread(&temp, sizeof(temp), 1, arq) == 1)\{\par
+        qtd++;\par
+    \}\par
+    arq = fecharArq(arq);\par
+\par
+    if (qtd == 0)\{\par
+        printf("Nenhuma palavra cadastrada para sortear.\\n");\par
+        pausa();\par
+        exit(1);\par
+    \}\par
+\par
+    palavraraso = rand() % qtd;\par
+\}\par
+\par
+void adicionarDica()\{\par
+    dica guarda, temp;\par
+    char resp;\par
+    bool erro = false;\par
+    do\{\par
+        system("cls");\par
+        printf("\\nDIGITE UMA DICA DE ATE 200 CARACTERES: ");\par
+        scanf("%[^\\n]", guarda.dica);\par
+        limparBuffer();\par
+\par
+        printf("\\nDESEJA CONTINUAR COM A DICA %s S/N? ", (char*)guarda.dica); // Cast para printf\par
+        resp = getchar();\par
+        limparBuffer();\par
+    \}while(resp != 's' && resp != 'S');\par
+\par
+    FILE *arq;\par
+    my_strupr(guarda.dica);\par
+    arq = abrirArq("dicas.fc", "r");\par
+    if (arq == NULL) \{\par
+        printf("Erro ao abrir o arquivo de dicas para verificar duplicidade.\\n");\par
+        pausa();\par
+        return;\par
+    \}\par
+\par
+    while(fread(&temp, sizeof(temp), 1, arq) == 1)\{\par
+        if(strcmp((char*)guarda.dica, (char*)temp.dica) == 0)\{\par
+            printf("\\nEssa dica ja existe!");\par
+            erro = true;\par
+            break;\par
+        \}\par
+    \}\par
+    arq = fecharArq(arq);\par
+\par
+    if(erro == false)\{\par
+        arq = abrirArq("dicas.fc", "a");\par
+        if (arq == NULL) \{\par
+            printf("Erro ao abrir o arquivo de dicas para adicionar.\\n");\par
+            pausa();\par
+            return;\par
+        \}\par
+        fwrite(&guarda, sizeof(guarda), 1, arq);\par
+        arq = fecharArq(arq);\par
+    \}\par
+    pausa();\par
+\}\par
+\par
+void adicionarPalavra()\{\par
+    dica gua, regTemp;\par
+    char resp;\par
+    bool erro;\par
+    FILE *temp;\par
+    registro guarda, temporario;\par
+    do\{\par
+        system("cls");\par
+        printf("\\nDIGITE UMA PALAVRA DE ATE 200 CARACTERES: ");\par
+        scanf("%[^\\n]", guarda.palavra);\par
+        limparBuffer();\par
+\par
+        printf("DIGITE A DICA: ");\par
+        scanf("%[^\\n]", gua.dica);\par
+        limparBuffer();\par
+\par
+        printf("\\nDESEJA CONTINUAR COM A PALAVRA %s S/N? ", (char*)guarda.palavra); // Cast para printf\par
+        resp = getchar();\par
+        limparBuffer();\par
+    \}while(resp != 's' && resp != 'S');\par
+\par
+    my_strupr(guarda.palavra);\par
+    my_strupr(gua.dica);\par
+\par
+    temp = abrirArq("dicas.fc", "r");\par
+    if (temp == NULL) \{\par
+        printf("Erro ao abrir o arquivo de dicas para buscar ID.\\n");\par
+        pausa();\par
+        return;\par
+    \}\par
+\par
+    erro = true;\par
+    guarda.idDica = 0;\par
+    while(fread(&regTemp, sizeof(regTemp), 1, temp) == 1)\{\par
+        if(strcmp((char*)gua.dica, (char*)regTemp.dica) == 0)\{\par
+            erro = false;\par
+            break;\par
+        \}\par
+        guarda.idDica++;\par
+    \}\par
+    temp = fecharArq(temp);\par
+\par
+    if(erro == true)\{\par
+        printf("\\nNAO FOI POSSIVEL ENCONTRAR DICA!");\par
+        printf("\\nAPERTTE UMA TECLA PARA VOLTAR AO MENU...");\par
+        getchar();\par
+        limparBuffer();\par
+        return;\par
+    \}\par
+\par
+    temp = abrirArq("palavras.fc", "r");\par
+    if (temp == NULL) \{\par
+        printf("Erro ao abrir o arquivo de palavras para verificar duplicidade.\\n");\par
+        pausa();\par
+        return;\par
+    \}\par
+\par
+    erro = false;\par
+    while(fread(&temporario, sizeof(temporario), 1, temp) == 1)\{\par
+        if(strcmp((char*)guarda.palavra, (char*)temporario.palavra) == 0)\{\par
+            erro = true;\par
+            break;\par
+        \}\par
+    \}\par
+    temp = fecharArq(temp);\par
+\par
+    if(erro == true)\{\par
+        printf("\\nPALAVRA JA EXISTE!");\par
+        printf("\\nAPERTTE UMA TECLA PARA VOLTAR AO MENU...");\par
+        getchar();\par
+        limparBuffer();\par
+        return;\par
+    \}\par
+\par
+    temp = abrirArq("palavras.fc", "a");\par
+    if (temp == NULL) \{\par
+        printf("Erro ao abrir o arquivo de palavras para adicionar.\\n");\par
+        pausa();\par
+        return;\par
+    \}\par
+    if(fwrite(&guarda, sizeof(guarda), 1, temp) != 1)\{\par
+        printf("\\nNAO FOI POSSIVEL ADICIONAR PALAVRA!");\par
+        printf("\\nAPERTTE UMA TECLA PARA VOLTAR AO MENU...");\par
+        getchar();\par
+        limparBuffer();\par
+        return;\par
+    \}\par
+    temp = fecharArq(temp);\par
+    pausa();\par
+\}\par
+}
+ 
